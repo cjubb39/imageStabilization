@@ -15,9 +15,7 @@ __global__ void d_grayscale(float *image, float *outArray, int w, int array_size
 	              0.7152f*image[array_pos+1] +
 	              0.0722f*image[array_pos+2];
 
-	    outArray[array_pos] = L;
-	    outArray[array_pos+1] = L;
-	    outArray[array_pos+2] = L;
+	    outArray[array_pos/3] = L;
 	}
 
 	return;
@@ -39,7 +37,7 @@ void comp_blurs(float *blur_values, int radius)
 	}
 }
 
-__global__ void d_gaussian(float *channel, float *blurs, float *outArray, int radius, int w, int h)
+__global__ void d_gaussian(float *channel, float *blurs, float *outArray, int i, int radius, int w, int h)
 {
 	//Compute position in 2D array
 	int thread_row = blockDim.y*blockIdx.y + threadIdx.y;
@@ -60,8 +58,30 @@ __global__ void d_gaussian(float *channel, float *blurs, float *outArray, int ra
 				float pixel = channel[index];
 				float blur_weight = blurs[(x + radius) * tile_width + y + radius];
 
-				outArray[array_pos] += pixel * blur_weight;
+				outArray[array_pos + i*w*h] += pixel * blur_weight;
 			}
+		}
+	}
+
+	return;
+}
+
+__global__ void comp_dog(float *gaussians, float *diffs, int w, int k_1, int array_size)
+{
+	//Compute position in 2D array
+	int thread_row = blockDim.y*blockIdx.y + threadIdx.y;
+	int thread_column = blockDim.x*blockIdx.x + threadIdx.x;
+
+	//Convert to flattened array
+	int array_pos = w * thread_row + thread_column;
+
+	if (array_pos < array_size)
+	{
+		for (int i = 0; i < k_1; i++)
+		{
+			int new_pos = array_pos + i * array_size;
+			int next_pos = array_pos + (i+1) * array_size;
+			diffs[new_pos] = gaussians[new_pos] - gaussians[next_pos];
 		}
 	}
 
