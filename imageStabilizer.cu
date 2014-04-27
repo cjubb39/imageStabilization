@@ -81,7 +81,7 @@ int main (int argc, char *argv[])
     d_grayscale<<<dim3(x_blocks, y_blocks), dim3(x_threads, y_threads)>>>(d_imageArray, d_grayArray, w, rgb_arraySize);
 
     //Number of gaussian blurs to apply
-    int k = 5;
+    int k = 7;
 
     //Make an array to hold all the blurred images
     float *d_gaussArray;
@@ -143,6 +143,16 @@ int main (int argc, char *argv[])
     comp_dog<<<dim3(x_blocks, y_blocks), dim3(x_threads, y_threads)>>>
     		(d_gaussArray, diff_gauss, w, k-1, arraySize);
 
+    //Find the extrema in every 3x3x3 cube
+    int *extrema;
+    GPU_CHECKERROR(
+    	cudaMalloc((void **) &extrema, arraySize * (k-1) * sizeof(float))
+    );
+
+    comp_extrema<<<dim3(x_blocks, y_blocks, 1), dim3(x_threads, y_threads, k-1)>>>
+    		(diff_gauss, extrema, w, h, k-1, arraySize);
+
+
 //    //Save one image to test
 //    float *h_testArray = (float *) malloc(arraySize * sizeof(float));
 //    GPU_CHECKERROR(
@@ -163,7 +173,7 @@ int main (int argc, char *argv[])
     cudaFree(d_imageArray);
     cudaFree(d_gaussArray);
     cudaFree(diff_gauss);
-    cudaFreeHost(h_testArray);
+//    cudaFreeHost(h_testArray);
     
     printf("done.\n");
 
