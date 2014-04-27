@@ -10,97 +10,12 @@
 #define RANSAC_MAX_MATCHES 15
 #define RANSAC_MAX_ATTEMPTS 100
 
-#define RANSAC_ANGLE_EPSILON 0.5 /* radians */
-#define RANSAC_ANGLE_THRESHOLD 0.75 /* percentage success */
-
-#define RANSAC_TRANS_EPSILON 1
-#define RANSAC_TRANS_THRESHOLD 0.90 /* percentage success */
-
 #define RANSAC_EPSILON 0.90
 #define RANSAC_THRESHOLD 0.75
 
-#define RANSAC_NO_ANGLE_FOUND 123456789.123456678
-#define RANSAC_NO_TRANS_FOUND 987654321.123456789
+#define RANSAC_CHARACTERISTIC_THRESHOLD 1
 
 #define TRANSFORM_DEFAULT_VALUE 6893
-
-__host__ void ransac_translation(double (*vectors)[VECTOR_LENGTH], int length, double *result){
-	double trans_running_count_x = 0;
-	double trans_running_count_y = 0;
-	double trans_x[RANSAC_MAX_MATCHES];
-	double trans_y[RANSAC_MAX_MATCHES];
-
-	/* Use difference between base coordinates.  Eliminates need to rotate */
-	for(int i = 0; i < length; ++i){
-		trans_running_count_x += (trans_x[i] = vectors[i][4] - vectors[i][0]);
-		trans_running_count_y += (trans_y[i] = vectors[i][5] - vectors[i][1]);
-	}
-
-	double trans_x_avg = trans_running_count_x / (double) length;
-	double trans_y_avg = trans_running_count_y / (double) length;
-	int threshold = RANSAC_TRANS_THRESHOLD*(length - 1) + 1;
-	printf("x avg: %f; y avg: %f; threshold: %d; length: %d\n", trans_x_avg, trans_y_avg, threshold, length);
-
-	int count_within_epsilon = 0;
-	for(int i = 0; count_within_epsilon < threshold && i < length; ++i){
-		if(abs(trans_x[i] - trans_x_avg) < RANSAC_TRANS_EPSILON && 
-				abs(trans_y[i] - trans_y_avg) < RANSAC_TRANS_EPSILON){
-			count_within_epsilon++;
-		}
-	}
-
-	if (count_within_epsilon >= threshold){
-		result[0] = trans_x_avg;
-		result[1] = trans_y_avg;
-	} else {
-		result[0] = RANSAC_NO_TRANS_FOUND;
-		result[1] = RANSAC_NO_TRANS_FOUND;
-	}
-}
-
-__host__ double ransac_angle(double (*vectors)[VECTOR_LENGTH], int length){
-	double toRet = RANSAC_NO_ANGLE_FOUND;
-
-	double angle_running_count = 0;
-	double theta[RANSAC_MAX_MATCHES];
-
-	for(int i = 0; i < length; ++i){
-		double *current = vectors[i];
-		double tmp[VECTOR_LENGTH];
-
-		/* make copy with v1, v2 starting at origin */
-		tmp[0] = current[0] - current[0];
-		tmp[1] = current[1] - current[1];
-		tmp[2] = current[2] - current[0];
-		tmp[3] = current[3] - current[1];
-		tmp[4] = current[4] - current[4];
-		tmp[5] = current[5] - current[5];
-		tmp[6] = current[6] - current[4];
-		tmp[7] = current[7] - current[5];
-
-		/* length of vector */
-		double l = sqrt((tmp[2] - tmp[0]) * (tmp[2] - tmp[0]) +
-			(tmp[3] - tmp[1]) * (tmp[3] - tmp[1]));
-
-		double d = sqrt((tmp[2] - tmp[6]) * (tmp[2] - tmp[6]) +
-			(tmp[3] - tmp[7]) * (tmp[3] - tmp[7]));
-
-		angle_running_count += (theta[i] = 2 * asin(d / (2*l)));
-	}
-
-	double theta_avg = angle_running_count / (double) length;
-	int threshold = RANSAC_ANGLE_THRESHOLD*(length - 1) + 1;
-	int count_within_epsilon = 0;
-	for(int i = 0; count_within_epsilon < threshold && i < length; ++i){
-		if (abs(theta[i] - theta_avg) < RANSAC_ANGLE_EPSILON)
-			count_within_epsilon++;
-	}
-
-	if (count_within_epsilon >= threshold)
-		toRet = theta_avg;
-
-	return toRet;
-}
 
 __host__ void transform(double *pt_before, double (*matrix)[3], double *pt_after){
 	for (int i = 0; i < 3; ++i){
@@ -115,14 +30,6 @@ __host__ void transform(double *pt_before, double (*matrix)[3], double *pt_after
 __host__ void ransac_full(double(*vectors)[VECTOR_LENGTH], int length, double *result){
 	assert(length <= RANSAC_MAX_MATCHES);
 
-/*	double theta[RANSAC_MAX_MATCHES];
-	double t1[RANSAC_MAX_MATCHES];
-	double t2[RANSAC_MAX_MATCHES];
-
-	double	theta_running = 0,
-					t1_running = 0,
-					t2_running = 0;*/
-
 	/* get local copy of vector pointers */
 	double **local_vectors = (double **) malloc(sizeof(double*) * length);
 
@@ -132,9 +39,11 @@ __host__ void ransac_full(double(*vectors)[VECTOR_LENGTH], int length, double *r
 
 	/* randomly select vector to use as reference */
 	int tmp_move = rand() % length;
-#ifdef DEBUG
-printf("SWAP: %d\n", tmp_move);
-#endif
+	
+	#ifdef DEBUG
+	printf("SWAP: %d\n", tmp_move);
+	#endif
+
 	double *tmp = local_vectors[0];
 	local_vectors[0] = local_vectors[tmp_move];
 	local_vectors[tmp_move] = tmp;
@@ -150,10 +59,6 @@ printf("SWAP: %d\n", tmp_move);
 						dx_s = cur[4] - cur[6],
 						dy_s = cur[5] - cur[7];
 
-/*		double	theta_m = atan(dy_m / dx_m),
-						theta_s = atan(dy_s / dx_s),
-						theta = theta_s - theta_m;*/
-
 		double	t1_m = (cur[0] + cur[2]) / 2,
 						t2_m = (cur[1] + cur[3]) / 2,
 						t1_s = (cur[4] + cur[6]) / 2,
@@ -161,7 +66,6 @@ printf("SWAP: %d\n", tmp_move);
 
 		double	theta_m = atan(dy_m / dx_m) + ((dx_m < 0) ? PI : 0),
 						theta_s = atan(dy_s / dx_s) + ((dx_s < 0) ? PI : 0);
-						/*theta = theta_s - theta_m*/
 
 		double	rt_m_inverse[3][3], rt_s[3][3];
 
@@ -193,39 +97,15 @@ printf("SWAP: %d\n", tmp_move);
 					rt_s[j][2] * rt_m_inverse[2][k];
 			}
 		}
-
-#ifdef DEBUG
-printf("T_M: %f; T_S: %f; THETA: %f; cosT: %f; sinT: %f\n", 
-	theta_m, theta_s, theta, cos(theta), sin(theta));
-#endif
-		/* rotate model to get intermediate vector used to get translation */
-		/*double	intermediate_x = cos(theta)*t1_m - sin(theta)*t2_m,
-						intermediate_y = sin(theta)*t1_m + cos(theta)*t2_m;*/
-#ifdef DEBUG
-printf("INTX: %f; INTY: %f\n", intermediate_x, intermediate_y);
-#endif
-		/*double	trans_x = intermediate_x - t1_s;
-		double	trans_y = intermediate_y - t2_s;*/
-
-
-		/* assemble transform matrix */
-/*		rt_total[0][0] = cos(theta);
-		rt_total[0][1] = -sin(theta);
-		rt_total[0][2] = trans_x;
-		rt_total[1][0] = sin(theta);
-		rt_total[1][1] = cos(theta);
-		rt_total[1][2] = trans_y;*/
 		rt_total[2][0] = 0;
 		rt_total[2][1] = 0;
 		rt_total[2][2] = 1;
+		
 		#ifdef DEBUG
 		for (int q = 0; q < 3; ++q){
 			printf("%f %f %f\n", rt_total[q][0], rt_total[q][1], rt_total[q][2]);
 		}
 		#endif
-/*		theta_running += (theta[i] = acos(rt_s[0][0]));
-		t1_running += (t1[i] = rt_s[0][2]);
-		t2_running += (t2[i] = rt_s[1][2]);*/
 	}
 
 
@@ -282,45 +162,6 @@ printf("INTX: %f; INTY: %f\n", intermediate_x, intermediate_y);
 	if (count_within_epsilon < threshold)
 		return;
 
-	/*double	theta_avg	= theta_running / length,
-					t1_avg 		= t1_running / length,
-					t2_avg 		= t2_running / length;
-
-	printf("T: %f; 1: %f; 2: %f\n", theta_avg, t1_avg, t2_avg);
-	int threshold_theta = RANSAC_ANGLE_THRESHOLD*(length - 1) + 1,
-			threshold_t1		= RANSAC_TRANS_THRESHOLD*(length - 1) + 1,
-			threshold_t2		= threshold_t1;
-*/
-	/* check thetas agree */
-	/*int count_within_epsilon = 0;
-	for(int i = 0; count_within_epsilon < threshold_theta && i < length; ++i){
-		if (abs(theta[i] - theta_avg) < RANSAC_ANGLE_EPSILON)
-			count_within_epsilon++;
-	}
-
-	if (count_within_epsilon < threshold_theta)
-		return;
-	*/
-	/* check t1 agree */
-	/*count_within_epsilon = 0;
-	for(int i = 0; count_within_epsilon < threshold_t1 && i < length; ++i){
-		if (abs(t1[i] - t1_avg) < RANSAC_TRANS_EPSILON)
-			count_within_epsilon++;
-	}
-
-	if (count_within_epsilon < threshold_t1)
-		return;
-	*/
-	/* check t2 agree */
-	/*count_within_epsilon = 0;
-	for(int i = 0; count_within_epsilon < threshold_t2 && i < length; ++i){
-		if (abs(t2[i] - t2_avg) < RANSAC_TRANS_EPSILON)
-			count_within_epsilon++;
-	}
-
-	if (count_within_epsilon < threshold_t2)
-		return;
-*/
 
 	/* SUCCESS! */
 	for (int i = 0; i < 9; i++){
@@ -344,9 +185,9 @@ __host__ int get_random_vector_pair_diff(double *im1, int im1_len,
 	int i = 0;
 	double *tracker;
 	for (i = 0, tracker = (im2 + 2); i < im2_len; tracker += 3, ++i){
-		if (*tracker == char1){
+		if (abs(*tracker - char1) < RANSAC_CHARACTERISTIC_THRESHOLD){
 			index1_im2 = i;
-		} else if (*tracker == char2){
+		} else if (abs(*tracker - char2) < RANSAC_CHARACTERISTIC_THRESHOLD){
 			index2_im2 = i;
 		}
 	}
@@ -418,15 +259,6 @@ __host__ void match_images(double *im1, int im1_len,
 			}
 
 			if (matches >= RANSAC_MIN_MATCHES) {
-				/*theta = ransac_angle(vectors, matches);
-				if (theta == RANSAC_NO_ANGLE_FOUND){
-					continue;
-				}
-				ransac_translation(vectors, matches, translation);
-				if (translation[0] == RANSAC_NO_TRANS_FOUND){
-					continue;
-				}*/
-
 				ransac_full(vectors, matches, matrix);
 
 				if (matrix[0] == TRANSFORM_DEFAULT_VALUE){
@@ -460,50 +292,6 @@ int main(void){
 
 	for(int i = 0; i < 9; ++i)
 		matrix[i] = TRANSFORM_DEFAULT_VALUE;
-
-	/*double vec1_1[3] = {1,1,1};
-	double vec1_2[3] = {1,1,1};
-
-	double vec2_1[3] = {2,2,2};
-	double vec2_2[3] = {2,2,2};
-
-	double vec3_1[3] = {3,3,3};
-	double vec3_2[3] = {3,3,3};
-
-	double vec4_1[3] = {4,4,4};
-	double vec4_2[3] = {4,4,4};
-	
-	double vec5_1[3] = {5,5,5};
-	double vec5_2[3] = {5,5,5};
-
-	double vec6_1[3] = {6,6,6};
-	double vec6_2[3] = {6,6,6};
-
-	double vec7_1[3] = {7,7,7};
-	double vec7_2[3] = {7,7,7};
-
-	double vec8_1[3] = {8,8,8};
-	double vec8_2[3] = {8,8,8};
-
-	double **im1 = (double **) malloc(sizeof(double*) * 8);
-	im1[0] = vec1_1;
-	im1[1] = vec2_1;
-	im1[2] = vec3_1;
-	im1[3] = vec4_1;
-	im1[4] = vec5_1;
-	im1[5] = vec6_1;
-	im1[6] = vec7_1;
-	im1[7] = vec8_1;
-
-	double **im2 = (double **) malloc(sizeof(double*) * 8);
-	im2[0] = vec1_2;
-	im2[1] = vec2_2;
-	im2[2] = vec3_2;
-	im2[3] = vec4_2;
-	im2[4] = vec5_2;
-	im2[5] = vec6_2;
-	im2[6] = vec7_2;
-	im2[7] = vec8_2;*/
 
 	double im1[27] = {0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8};
 	
