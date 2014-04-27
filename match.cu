@@ -1,10 +1,9 @@
 #include <stdio.h>
 #include <assert.h>
 
-//#define DEBUG
+#include "error_handling.h"
 
 #define PI 3.1415926
-
 #define VECTOR_LENGTH 8
 
 #define RANSAC_MIN_MATCHES 4
@@ -375,6 +374,7 @@ __host__ int get_random_vector_pair_diff(double *im1, int im1_len,
  *	Lists are single dimensional vector in row-major order (all doubles)
  *	
  *	Returns representation of translation / rotation necessary to match images
+ *		model (im1) -> scene (im2)
  *	
  */
 __host__ void match_images(double *im1, int im1_len, 
@@ -448,7 +448,7 @@ void runtest(double *im1, double *im2, double *matrix){
 	match_images(im1, 9, im2, 9, matrix);
 
 	for (int i = 0; i < 9; ++i){
-		printf("%.20f ", matrix[i]);
+		printf("%f ", matrix[i]);
 		if(i%3 == 2)
 			printf("\n");
 	}
