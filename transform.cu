@@ -4,13 +4,6 @@
 
 #define rowmajIndex(col, row, width, height) ( ((int) row + height/2)*width + ((int) col + width/2))
 
-/*__device__ int dest_rowmajIndex(int col, int row, int swidth, int sheight,
-		int xtrans, int ytrans, int dwidth, int dheight)
-{
-	int dcol = (col + dwidth/2) + xtrans;
-	int drow = (row + dheight/2) + ytrans;
-	return (drow*dwidth + dcol);
-}*/
 
 /*	
  *	transform_info: cos(angle), sin(angle), trans_x, trans_y
@@ -30,7 +23,7 @@ __global__ void image_transform(float *source, float *destination,
 	}
 
 	/* do translation */
-	float fetch_x = x + xtrans - transform_info[2];
+	float fetch_x = x + xtrans + transform_info[2];
 	float fetch_y = y + ytrans + transform_info[3];
 
 	/* do rotation */
@@ -81,7 +74,7 @@ __host__ void getMaxThreadsPerBlock(int *info){
  *	transform should be in form: (single pointer to array in row major form)
  *		cos(theta)	-sin(theta)	t_x
  *		sin(theta)	cos(theta)	t_y
- *		0						0						1
+ *		0			0			1
  */
 __host__ void apply_transform(float *input, float *output, float *transform, 
 		const int width, const int height, int xtrans, int ytrans,
@@ -156,10 +149,25 @@ printf("transform prop: %f %f %f %f\n", tmp_transform[0], tmp_transform[1], tmp_
 __host__ void find_dest(float *transform, int width, int height, int *xtrans,
 		int*ytrans, int *dwidth, int*dheight)
 {
-	*xtrans = 0;
-	*ytrans = 0;
-	*dwidth = width + 250;
-	*dheight = height + 250;
+	int x1 = -width/2 * transform[0] - height/2 * transform[1] + transform[2];
+	int y1 = -width/2 * transform[3] - height/2 * transform[4] + transform[5];
+	int x2 = -width/2 * transform[0] + height/2 * transform[1] + transform[2];
+	int y2 = -width/2 * transform[3] + height/2 * transform[4] + transform[5];
+	int x3 = width/2 * transform[0] - height/2 * transform[1] + transform[2];
+	int y3 = width/2 * transform[3] - height/2 * transform[4] + transform[5];
+	int x4 = width/2 * transform[0] + height/2 * transform[1] + transform[2];
+	int y4 = width/2 * transform[3] + height/2 * transform[4] + transform[5];
+
+	int xmin = min(min(min(x1, x2), x3), x4);
+	int ymin = min(min(min(y1, y2), y3), y4);
+	int xmax = max(max(max(x1, x2), x3), x4);
+	int ymax = max(max(max(y1, y2), y3), y4);
+
+
+	*xtrans =  - transform[2];
+	*ytrans =  - transform[5];
+	*dwidth = xmax - xmin;
+	*dheight = ymax - ymin;
 }
 
 __host__ int main(int argc, char **argv){
