@@ -215,7 +215,7 @@ __host__ int get_random_vector_pair_diff(double *im1, int im1_len,
  *	Lists are single dimensional vector in row-major order (all doubles)
  *	
  *	Returns representation of translation / rotation necessary to match images
- *		model (im1) -> scene (im2)
+ *		scene (im2) -> model (im1)
  *	
  */
 __host__ void match_images(double *im1, int im1_len, 
@@ -265,6 +265,13 @@ __host__ void match_images(double *im1, int im1_len,
 					continue;
 				}
 				/* passed both theta / translation tests */
+
+				/* adjust so we are returning scene -> model matrix */
+				matrix[1] *= -1;
+				matrix[2] *= -1;
+				matrix[3] *= -1;
+				matrix[5] *= -1;
+
 				return;
 			}
 		}
@@ -284,6 +291,7 @@ void runtest(double *im1, double *im2, double *matrix){
 		if(i%3 == 2)
 			printf("\n");
 	}
+	printf("\n");
 }
 
 int main(void){
