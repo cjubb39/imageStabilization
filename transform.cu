@@ -7,8 +7,8 @@
 __device__ int dest_rowmajIndex(int col, int row, int swidth, int sheight,
 		int xtrans, int ytrans, int dwidth, int dheight)
 {
-	int dcol = (col + swidth/2) + xtrans;
-	int drow = (row + sheight/2) + ytrans;
+	int dcol = (col + swidth/2) - xtrans;
+	int drow = (row + sheight/2) - ytrans;
 	return (drow*dwidth + dcol);
 }
 
@@ -21,11 +21,11 @@ __global__ void image_transform(float *source, float *destination,
 		float *transform_info){
 
 	/* want origin at center */
-	const int x = blockIdx.x * blockDim.x + threadIdx.x - width / 2 - xtrans;
-	const int y = blockIdx.y * blockDim.y + threadIdx.y - height / 2 - ytrans;
+	const int x = blockIdx.x * blockDim.x + threadIdx.x - dwidth / 2;
+	const int y = blockIdx.y * blockDim.y + threadIdx.y - dheight / 2;
 	const int index = dest_rowmajIndex(x, y, width, height, xtrans, ytrans, dwidth, dheight);
 
-	if (x >= (width / 2) || y >= (height / 2)){
+	if (x >= dwidth/2 || y >= dheight/2){
 		return;
 	}
 
@@ -113,7 +113,8 @@ printf("transform prop: %f %f %f %f\n", tmp_transform[0], tmp_transform[1], tmp_
 
 	GPU_CHECKERROR(cudaMemcpy(d_source, input, 
 		sizeof(float) * height * width * 3, cudaMemcpyHostToDevice));
-	GPU_CHECKERROR(cudaMemset(d_destination, 0x00, sizeof(float) * dheight * dwidth * 3));
+	GPU_CHECKERROR(cudaMemcpy(d_destination, output, sizeof(float) * dheight * dwidth * 3,
+			cudaMemcpyHostToDevice));
 	GPU_CHECKERROR(cudaMemcpy(d_transform_info, tmp_transform,
 		sizeof(float) * 4, cudaMemcpyHostToDevice));
 
@@ -155,10 +156,10 @@ printf("transform prop: %f %f %f %f\n", tmp_transform[0], tmp_transform[1], tmp_
 __host__ void find_dest(float *transform, int width, int height, int *xtrans,
 		int*ytrans, int *dwidth, int*dheight)
 {
-	*xtrans = 100;
-	*ytrans = -50;
-	*dwidth = width + 100;
-	*dheight = height + 50;
+	*xtrans = 0;
+	*ytrans = 0;
+	*dwidth = width;
+	*dheight = height;
 }
 
 __host__ int main(int argc, char **argv){
@@ -172,10 +173,10 @@ __host__ int main(int argc, char **argv){
 	float *transform = (float *) malloc(sizeof(float) * 9);\
 	transform[0] = 1;//0.707;
 	transform[1] = 0;//-0.707;
-	transform[2] = 100;
+	transform[2] = 0;
 	transform[3] = 0;//0.707;
 	transform[4] = 1;//0.707;
-	transform[5] = -100;
+	transform[5] = 0;
 	transform[6] = 0;
 	transform[7] = 0;
 	transform[8] = 1;
@@ -187,6 +188,10 @@ __host__ int main(int argc, char **argv){
 	find_dest(transform, width, height, &xtrans, &ytrans, &dwidth, &dheight);
 
 	float *output = (float *) malloc(sizeof(float) * dwidth * dheight * 3);
+	for (int i = 0; i < dwidth*dheight*3; i+=3)
+	{
+		output[i] = 1;
+	}
 
 	apply_transform(input, output, transform, width, height, xtrans, ytrans,
 			dwidth, dheight);
