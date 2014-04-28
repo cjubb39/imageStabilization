@@ -8,4 +8,4 @@ __global__ void d_gaussian(float *channel, float *blurs, float *outArray, int i,
 
 __global__ void comp_dog(float *gaussians, float *diffs, int w, int blurs, int array_size);
 
-__global__ void comp_extrema(float *diff_gauss, int *extremas, int w, int h, int layers, int array_size);
+__global__ void comp_extrema(float *diff_gauss, float *extremas, int w, int h, int layers, int array_size);

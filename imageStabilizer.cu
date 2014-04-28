@@ -79,6 +79,7 @@ int main (int argc, char *argv[])
 	);
 
     d_grayscale<<<dim3(x_blocks, y_blocks), dim3(x_threads, y_threads)>>>(d_imageArray, d_grayArray, w, rgb_arraySize);
+    cudaDeviceSynchronize();
 
     //Number of gaussian blurs to apply
     int k = 7;
@@ -92,7 +93,7 @@ int main (int argc, char *argv[])
     	cudaMemset((void *) d_gaussArray, 0, arraySize * k * sizeof(float))
     );
 
-    int sigma = 6;
+    int sigma = 4;
     int radius = sigma / 2;
     int tile_width = 2*radius + 1;
 
@@ -112,7 +113,6 @@ int main (int argc, char *argv[])
 
     	comp_blurs(blurs, radius);
 
-
     	GPU_CHECKERROR(
     		cudaMemcpy((void *) d_blurs, blurs, tile_width * tile_width * sizeof(float), cudaMemcpyHostToDevice)
     	);
@@ -130,6 +130,7 @@ int main (int argc, char *argv[])
     	cudaFreeHost(blurs);
     	cudaFree(d_blurs);
     }
+    cudaDeviceSynchronize();
 
     //Convert to DoG
     float *diff_gauss;
@@ -142,38 +143,54 @@ int main (int argc, char *argv[])
 
     comp_dog<<<dim3(x_blocks, y_blocks), dim3(x_threads, y_threads)>>>
     		(d_gaussArray, diff_gauss, w, k-1, arraySize);
+    cudaDeviceSynchronize();
 
     //Find the extrema in every 3x3x3 cube
-    int *extrema;
+    float *extrema;
     GPU_CHECKERROR(
     	cudaMalloc((void **) &extrema, arraySize * (k-1) * sizeof(float))
     );
 
-    comp_extrema<<<dim3(x_blocks, y_blocks, 1), dim3(x_threads, y_threads, k-1)>>>
+    //Use 32 for num of blocks in Z direction because this is to cover each k level,
+    //and there are 32 threads in a warp but less than 32 levels
+    comp_extrema<<<dim3(x_blocks, y_blocks, 1), dim3(x_threads, y_threads, 32)>>>
     		(diff_gauss, extrema, w, h, k-1, arraySize);
+    cudaDeviceSynchronize();
 
 
-//    //Save one image to test
-//    float *h_testArray = (float *) malloc(arraySize * sizeof(float));
-//    GPU_CHECKERROR(
-//    	cudaMemcpy((void *) h_testArray, diff_gauss, arraySize * sizeof(float), cudaMemcpyDeviceToHost)
-//    );
+    //Save one image to test
+    float *h_testArray = (float *) malloc(arraySize * sizeof(float));
+    GPU_CHECKERROR(
+    	cudaMemcpy((void *) h_testArray, extrema, arraySize * sizeof(float), cudaMemcpyDeviceToHost)
+    );
+
+    for (int i = 0; i < arraySize; i++)
+    {
+    	h_imageArray[3*i] = h_testArray[i];
+    	h_imageArray[3*i+1] = h_testArray[i];
+    	h_imageArray[3*i+2] = h_testArray[i];
+    }
+
+    writeOpenEXRFile ("gauss_test.exr", h_imageArray, w, h);
 //
 //    for (int i = 0; i < arraySize; i++)
 //    {
-//    	h_imageArray[3*i] = h_testArray[i];
-//    	h_imageArray[3*i+1] = h_testArray[i];
-//    	h_imageArray[3*i+2] = h_testArray[i];
+//    	h_imageArray[3*i] = example[i];
+//    	h_imageArray[3*i+1] = example[i];
+//    	h_imageArray[3*i+2] = example[i];
 //    }
 //
-//    writeOpenEXRFile ("gauss_test.exr", h_imageArray, w, h);
+//    writeOpenEXRFile ("example_test.exr", h_imageArray, w, h);
 
     //End the program
     cudaFreeHost(h_imageArray);
     cudaFree(d_imageArray);
     cudaFree(d_gaussArray);
     cudaFree(diff_gauss);
-//    cudaFreeHost(h_testArray);
+    cudaFreeHost(h_testArray);
+    cudaFree(extrema);
+
+ //   free(example);
     
     printf("done.\n");
 
