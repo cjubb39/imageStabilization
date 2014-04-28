@@ -4,13 +4,13 @@
 
 #define rowmajIndex(col, row, width, height) ( ((int) row + height/2)*width + ((int) col + width/2))
 
-__device__ int dest_rowmajIndex(int col, int row, int swidth, int sheight,
+/*__device__ int dest_rowmajIndex(int col, int row, int swidth, int sheight,
 		int xtrans, int ytrans, int dwidth, int dheight)
 {
-	int dcol = (col + swidth/2) - xtrans;
-	int drow = (row + sheight/2) - ytrans;
+	int dcol = (col + dwidth/2) + xtrans;
+	int drow = (row + dheight/2) + ytrans;
 	return (drow*dwidth + dcol);
-}
+}*/
 
 /*	
  *	transform_info: cos(angle), sin(angle), trans_x, trans_y
@@ -23,15 +23,15 @@ __global__ void image_transform(float *source, float *destination,
 	/* want origin at center */
 	const int x = blockIdx.x * blockDim.x + threadIdx.x - dwidth / 2;
 	const int y = blockIdx.y * blockDim.y + threadIdx.y - dheight / 2;
-	const int index = dest_rowmajIndex(x, y, width, height, xtrans, ytrans, dwidth, dheight);
+	const int index = rowmajIndex(x, y, dwidth, dheight);
 
 	if (x >= dwidth/2 || y >= dheight/2){
 		return;
 	}
 
 	/* do translation */
-	float fetch_x = x - transform_info[2];
-	float fetch_y = y + transform_info[3];
+	float fetch_x = x + xtrans - transform_info[2];
+	float fetch_y = y + ytrans + transform_info[3];
 
 	/* do rotation */
 	float cos_val = transform_info[0], sin_val = transform_info[1];
@@ -44,8 +44,8 @@ __global__ void image_transform(float *source, float *destination,
 	x, y, 3*rowmajIndex(x,y,width, height), width, height, 
 	(int) fetch_x, (int) fetch_y, (int) (3*rowmajIndex((int) fetch_x, (int) fetch_y,width, height)));
 */
-	if (fetch_x >= width/2 || fetch_x <= -width/2 ||
-			fetch_y >= height/2 || fetch_y <= -height/2){
+	if (fetch_x >= width/2 || fetch_x < -width/2 ||
+			fetch_y >= height/2 || fetch_y < -height/2){
 		destination[3*index] = 0;
 		destination[3*index + 1] = 1;
 		destination[3*index + 2] = 0;
@@ -158,8 +158,8 @@ __host__ void find_dest(float *transform, int width, int height, int *xtrans,
 {
 	*xtrans = 0;
 	*ytrans = 0;
-	*dwidth = width;
-	*dheight = height;
+	*dwidth = width + 250;
+	*dheight = height + 250;
 }
 
 __host__ int main(int argc, char **argv){
@@ -171,12 +171,12 @@ __host__ int main(int argc, char **argv){
 	readOpenEXRFile(argv[1], &input, width, height);
 
 	float *transform = (float *) malloc(sizeof(float) * 9);\
-	transform[0] = 1;//0.707;
-	transform[1] = 0;//-0.707;
-	transform[2] = 0;
-	transform[3] = 0;//0.707;
-	transform[4] = 1;//0.707;
-	transform[5] = 0;
+	transform[0] = 0.707;
+	transform[1] = -0.707;
+	transform[2] = 100;
+	transform[3] = 0.707;
+	transform[4] = 0.707;
+	transform[5] = 100;
 	transform[6] = 0;
 	transform[7] = 0;
 	transform[8] = 1;
