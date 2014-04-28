@@ -2,7 +2,7 @@
 #include "match.h"
 #include "im1.h"
 
-#define rowmajIndex(row, col, width, height) ( ((int) col + height/2)*width + ((int) row + width/2))
+#define rowmajIndex(col, row, width, height) ( ((int) row + height/2)*width + ((int) col + width/2))
 
 /*	
  *	transform_info: cos(angle), sin(angle), trans_x, trans_y
@@ -22,10 +22,10 @@ __global__ void image_transform(float *source, float *destination,
 
 	/* do translation */
 	float fetch_x = x - transform_info[2];
-	float fetch_y = y - transform_info[3];
+	float fetch_y = y + transform_info[3];
 
 	/* do rotation */
-	float cos_val = transform_info[0], sin_val = -transform_info[1];
+	float cos_val = transform_info[0], sin_val = transform_info[1];
 	
 	int tmp = fetch_x;
 	fetch_x = tmp*cos_val - fetch_y*sin_val;
@@ -149,18 +149,19 @@ __host__ int main(int argc, char **argv){
 	float *output = (float *) malloc(sizeof(float) * width * height * 3);
 
 	float *transform = (float *) malloc(sizeof(float) * 9);
-	transform[0] = 0.707;
-	transform[1] = -0.707;
-	transform[2] = 500;
-	transform[3] = 0.707;
-	transform[4] = 0.707;
-	transform[5] = 500;
+	transform[0] = 1;//0.707;
+	transform[1] = 0;//-0.707;
+	transform[2] = 100;
+	transform[3] = 0;//0.707;
+	transform[4] = 1;//0.707;
+	transform[5] = -100;
 	transform[6] = 0;
-	transform[7] = 1;
+	transform[7] = 0;
+	transform[8] = 1;
 
 	apply_transform(input, output, transform, width, height);
 
-	printf("writing output image hw1_gpu.exr\n");
+	printf("writing output image trans_out.exr\n");
 	writeOpenEXRFile("trans_out.exr", output, width, height);
 	
 	free(transform);
