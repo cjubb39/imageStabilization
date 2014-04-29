@@ -10,8 +10,11 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#include <stdio.h>
+
 #include "cudaImage.h"
 #include "cudaSift.h"
+#include "mainSift.h"
 
 #define MATCH_ERROR_THRESHOLD 10
 #define FEATURE_MATCH_THRESHOLD 0.01f
@@ -161,18 +164,4 @@ void GenerateMatchData(SiftData &siftData1, SiftData &siftData2, CudaImage &img,
   }
 
   *im2_length = *im1_length = numMatches;
-}
-
-int main(void){
-  double *im1, *im2;
-  int im1l, im2l;
-
-  const char *i1 = "test/lowres_img06.exr";
-  const char *i2 = "test/lowres_img23.exr";
-  sift_images(i1, i2, &im1, &im1l, &im2, &im2l);
-
-  printf("LENGTH: %d %d\n", im1l, im2l);
-
-  free(im1);
-  free(im2);
 }

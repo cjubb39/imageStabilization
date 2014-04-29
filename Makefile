@@ -1,13 +1,44 @@
-def2:
-	nvcc -g transform.cu im1.cc -I. -I/usr/include/OpenEXR -lIlmImf -lImath -lHalf -o trans -arch=sm_21
-r2: def2
-	optirun ./trans sailplane_noborder.exr
+CXX = nvcc
 
-default:
-	nvcc -g match.cu -o match
+OUTPUT = image_stab
 
-run: default
-	./match > output
+CXXSOURCES = 	mainSift.cpp \
+							geomFuncs.cpp \
+							im1.cpp
+
+CUDASOURCES =	cudaImage.cu \
+							cudaSiftH.cu \
+							error_handling.cu \
+							match.cu \
+							match_trans.cu \
+							matching.cu \
+							sift.cu \
+							singular.cu \
+							transform.cu
+
+HFILES = $(wildcard *.h)
+
+IDIR = -I. -I/usr/include/OpenEXR -I/usr/local/include/opencv -I/usr/local/include/opencv2
+
+OBJS = $(CXXSOURCES:.cpp=.o) $(CUDASOURCES:.cu=.o)
+
+CXXFLAGS = -g
+
+NVCCFLAGS = -arch=sm_21 -g
+
+LFLAGS = -lIlmImf -lImath -lHalf -lopencv_core -lopencv_imgproc -lopencv_highgui
+
+$(OUTPUT) : $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LFLAGS)
+
+%.o: %.cc
+	$(CXX) $(NVCCFLAGS) $(IDIR) -c -o $@ $<
+
+%.o: %.cpp
+	$(CXX) $(NVCCFLAGS) $(IDIR) -c -o $@ $<
+
+%.o: %.cu $(HFILES)
+	$(CXX) $(NVCCFLAGS) $(IDIR) -c -o $@ $<
 
 clean:
-	rm -f match trans
+	rm -f $(OBJS) $(EXE)
