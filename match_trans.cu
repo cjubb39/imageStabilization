@@ -52,12 +52,16 @@ __host__ int main(int argc, char **argv)
 		output[i] = 1;
 	}
 
-	int arg_index = 2;
+	char name [20];
+//	int arg_index = 2;
 	for (int i = 0; i < num_img; i++)
 	{
 		apply_transform(input, output, &transforms[9*i], width, height, xtrans, ytrans, dwidth, dheight);
-		writeOpenEXRFile(argv[arg_index], output, dwidth, dheight);
-		arg_index++;
+		sprintf(name, "transformed_img_%i.exr", i);
+		if (i < 10) sprintf(name, "transformed_img_0%i.exr", i);
+		writeOpenEXRFile(name, output, dwidth, dheight);
+//		writeOpenEXRFile(argv[arg_index], output, dwidth, dheight);
+//		arg_index++;
 	}
 
 	free(transforms);
