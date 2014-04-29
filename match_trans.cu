@@ -42,26 +42,19 @@ __host__ int main(int argc, char **argv)
 
 	find_dest_multi(transforms, num_img, width, height, &xtrans, &ytrans, &dwidth, &dheight);
 
-	printf("width: %i\nheight: %i\n", width, height);
-	printf("xtrans: %i\nytrans: %i\n", xtrans, ytrans);
-	printf("dwidth: %i\ndheight: %i\n", dwidth, dheight);
-
 	float *output = (float *) malloc(sizeof(float) * dwidth * dheight * 3);
-	for (int i = 0; i < dwidth*dheight*3; i+=3)
+	for (int i = 0; i < dwidth*dheight*3; i++)
 	{
-		output[i] = 1;
+		output[i] = 0.5;
 	}
 
-	char name [20];
-//	int arg_index = 2;
+	char name [30];
 	for (int i = 0; i < num_img; i++)
 	{
 		apply_transform(input, output, &transforms[9*i], width, height, xtrans, ytrans, dwidth, dheight);
 		sprintf(name, "transformed_img_%i.exr", i);
 		if (i < 10) sprintf(name, "transformed_img_0%i.exr", i);
 		writeOpenEXRFile(name, output, dwidth, dheight);
-//		writeOpenEXRFile(argv[arg_index], output, dwidth, dheight);
-//		arg_index++;
 	}
 
 	free(transforms);
