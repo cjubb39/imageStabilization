@@ -2,15 +2,23 @@
 #include "error_handling.h"
 #include "match.h"
 #include "transform.h"
+#include "mainSift.h"
 #include "im1.h"
 
 __host__ int main(int argc, char **argv)
 {
 	srand(time(NULL));
 
-	int num_img = 4;
+	int num_img = 2;
 
-	double *transforms = (double *) malloc(sizeof(double) * 9 * num_img);
+	double *img1_featurelist;
+	double *img2_featurelist;
+	int img1_feat_length;
+	int img2_feat_length;
+
+	sift_images(argv[1], argv[2], &img1_featurelist, &img1_feat_length, &img2_featurelist, &img2_feat_length);
+
+	double *transforms = (double *) malloc(sizeof(double) * 18);
 
 	for(int i = 0; i < 9 * num_img; ++i)
 	{
@@ -20,16 +28,33 @@ __host__ int main(int argc, char **argv)
 	transforms[4] = 1;
 	transforms[8] = 1;
 
-	double im1[27] = {0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8};
-	double im2[27] = {0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8};
-	double im3[27] = {0,0,0,-1,-1,1,-2,-2,2,-3,-3,3,-4,-4,4,-5,-5,5,-6,-6,6,-7,-7,7,-8,-8,8};
-	double im4[27] = {50,20,0,51,21,1,52,22,2,53,23,3,54,24,4,55,25,5,56,26,6,57,27,7,58,28,8};
+	match_images(img1_featurelist, img1_feat_length, img2_featurelist, img2_feat_length, &transforms[9]);
 
-	runtest(im1, im2, &transforms[9]);
-	runtest(im2, im3, &transforms[18]);
-	runtest(im3, im4, &transforms[27]);
-
-	comb_trans(transforms, num_img);
+	free(img1_featurelist);
+	free(img2_featurelist);
+//
+//	int num_img = 4;
+//
+//	double *transforms = (double *) malloc(sizeof(double) * 9 * num_img);
+//
+//	for(int i = 0; i < 9 * num_img; ++i)
+//	{
+//		transforms[i] = 0;
+//	}
+//	transforms[0] = 1;
+//	transforms[4] = 1;
+//	transforms[8] = 1;
+//
+//	double im1[27] = {0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8};
+//	double im2[27] = {0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8};
+//	double im3[27] = {0,0,0,-1,-1,1,-2,-2,2,-3,-3,3,-4,-4,4,-5,-5,5,-6,-6,6,-7,-7,7,-8,-8,8};
+//	double im4[27] = {50,20,0,51,21,1,52,22,2,53,23,3,54,24,4,55,25,5,56,26,6,57,27,7,58,28,8};
+//
+//	runtest(im1, im2, &transforms[9]);
+//	runtest(im2, im3, &transforms[18]);
+//	runtest(im3, im4, &transforms[27]);
+//
+//	comb_trans(transforms, num_img);
 
 	int width, height;
 	float *input;
