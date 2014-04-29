@@ -2,6 +2,7 @@
 #define TRANS
 
 //Transform functions
+__host__ void comb_trans(double *transforms, int num_trans);
 __global__ void image_transform(float *source, float *destination,
 		int width, int height, int xtrans, int ytrans, int dwidth, int dheight,
 		float *transform_info);
