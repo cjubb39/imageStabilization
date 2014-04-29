@@ -3,6 +3,50 @@
 
 #define rowmajIndex(col, row, width, height) ( ((int) row + height/2)*width + ((int) col + width/2))
 
+__host__ void comb_trans(double *transforms, int num_trans)
+{
+	//Multiply consecutive transforms together so all will eventually be transformed to the original matrix
+	for(int k = 0; k < num_trans-1; k++)
+	{
+		double a, b, c, d, e, f, g, h, i;
+		a = transforms[9*(k+1)] 	* transforms[9*k] +
+			transforms[9*(k+1) + 1] * transforms[9*k + 3] +
+			transforms[9*(k+1) + 2] * transforms[9*k + 6];
+		b = transforms[9*(k+1)] 	* transforms[9*k + 1] +
+			transforms[9*(k+1) + 1] * transforms[9*k + 4] +
+			transforms[9*(k+1) + 2] * transforms[9*k + 7];
+		c = transforms[9*(k+1)]		* transforms[9*k + 2] +
+			transforms[9*(k+1) + 1] * transforms[9*k + 5] +
+			transforms[9*(k+1) + 2] * transforms[9*k + 8];
+		d = transforms[9*(k+1) + 3] * transforms[9*k] +
+			transforms[9*(k+1) + 4] * transforms[9*k + 3] +
+			transforms[9*(k+1) + 5] * transforms[9*k + 6];
+		e = transforms[9*(k+1) + 3] * transforms[9*k + 1] +
+			transforms[9*(k+1) + 4] * transforms[9*k + 4] +
+			transforms[9*(k+1) + 5] * transforms[9*k + 7];
+		f = transforms[9*(k+1) + 3] * transforms[9*k + 2] +
+			transforms[9*(k+1) + 4] * transforms[9*k + 5] +
+			transforms[9*(k+1) + 5] * transforms[9*k + 8];
+		g = transforms[9*(k+1) + 6] * transforms[9*k] +
+			transforms[9*(k+1) + 7] * transforms[9*k + 3] +
+			transforms[9*(k+1) + 8] * transforms[9*k + 6];
+		h = transforms[9*(k+1) + 6] * transforms[9*k + 1] +
+			transforms[9*(k+1) + 7] * transforms[9*k + 4] +
+			transforms[9*(k+1) + 8] * transforms[9*k + 7];
+		i = transforms[9*(k+1) + 6] * transforms[9*k + 2] +
+			transforms[9*(k+1) + 7] * transforms[9*k + 5] +
+			transforms[9*(k+1) + 8] * transforms[9*k + 8];
+		transforms[9*(k+1)] 	= a;
+		transforms[9*(k+1) + 1] = b;
+		transforms[9*(k+1) + 2] = c;
+		transforms[9*(k+1) + 3] = d;
+		transforms[9*(k+1) + 4] = e;
+		transforms[9*(k+1) + 5] = f;
+		transforms[9*(k+1) + 6] = g;
+		transforms[9*(k+1) + 7] = h;
+		transforms[9*(k+1) + 8] = i;
+	}
+}
 
 /*	
  *	transform_info: cos(angle), sin(angle), trans_x, trans_y
