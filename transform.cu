@@ -1,6 +1,5 @@
 #include "error_handling.h"
-#include "match.h"
-#include "im1.h"
+//#include "im1.h"
 
 #define rowmajIndex(col, row, width, height) ( ((int) row + height/2)*width + ((int) col + width/2))
 
@@ -76,7 +75,7 @@ __host__ void getMaxThreadsPerBlock(int *info){
  *		sin(theta)	cos(theta)	t_y
  *		0			0			1
  */
-__host__ void apply_transform(float *input, float *output, float *transform, 
+__host__ void apply_transform(float *input, float *output, double *transform,
 		const int width, const int height, int xtrans, int ytrans,
 		int dwidth, int dheight){
 
@@ -173,7 +172,7 @@ __host__ void find_dest(float *transform, int width, int height, int *xtrans,
 /* Given the set of transformation matrices, find the final destination
  * translation wrt to the original, and size
  */
-__host__ void find_dest_multi(float *transforms, int num_transforms, int width,
+__host__ void find_dest_multi(double *transforms, int num_transforms, int width,
 		int height, int *xtrans, int *ytrans, int *dwidth, int *dheight)
 {
 	//Start with assuming no transformation
@@ -186,28 +185,32 @@ __host__ void find_dest_multi(float *transforms, int num_transforms, int width,
 	{
 		int index = i*9;
 		//Find the farthest transform that's above and to the left
-		if (-transforms[index + 2] < *xtrans)
-			*xtrans = -transforms[index + 2];
-		if (-transforms[index + 5] < *ytrans)
-			*ytrans = -transforms[index + 5];
+		if (transforms[index + 2] < *xtrans)
+			*xtrans = transforms[index + 2];
+		if (transforms[index + 5] < *ytrans)
+			*ytrans = transforms[index + 5];
 
 		//Translate the four corners to find the largest dimensions
 		int x1 = -width/2 * transforms[index]
-		         - height/2 * transforms[index + 1] + transforms[index + 2];
+		         - height/2 * transforms[index + 1] + transforms[index + 2] + width/2;
 		int y1 = -width/2 * transforms[index + 3]
-		         - height/2 * transforms[index + 4] + transforms[index + 5];
+		         - height/2 * transforms[index + 4] + transforms[index + 5] + height/2;
 		int x2 = -width/2 * transforms[index]
-		         + height/2 * transforms[index + 1] + transforms[index + 2];
+		         + height/2 * transforms[index + 1] + transforms[index + 2] + width/2;
 		int y2 = -width/2 * transforms[index + 3]
-		         + height/2 * transforms[index + 4] + transforms[index + 5];
+		         + height/2 * transforms[index + 4] + transforms[index + 5] + height/2;
 		int x3 = width/2 * transforms[index]
-		         - height/2 * transforms[index + 1] + transforms[index + 2];
+		         - height/2 * transforms[index + 1] + transforms[index + 2] + width/2;
 		int y3 = width/2 * transforms[index + 3]
-		         - height/2 * transforms[index + 4] + transforms[index + 5];
+		         - height/2 * transforms[index + 4] + transforms[index + 5] + height/2;
 		int x4 = width/2 * transforms[index]
-		         + height/2 * transforms[index + 1] + transforms[index + 2];
+		         + height/2 * transforms[index + 1] + transforms[index + 2] + width/2;
 		int y4 = width/2 * transforms[index + 3]
-		         + height/2 * transforms[index + 4] + transforms[index + 5];
+		         + height/2 * transforms[index + 4] + transforms[index + 5] + height/2;
+
+		printf("x1: %i\tx2: %i\tx3: %i\tx4: %i\n", x1, x2, x3, x4);
+		printf("y1: %i\ty2: %i\ty3: %i\ty4: %i\n", y1, y2, y3, y4);
+		printf("i: %i\n", i);
 
 		xmin = min(min(min(min(x1, x2), x3), x4), xmin);
 		ymin = min(min(min(min(y1, y2), y3), y4), ymin);
@@ -215,34 +218,65 @@ __host__ void find_dest_multi(float *transforms, int num_transforms, int width,
 		ymax = max(max(max(max(y1, y2), y3), y4), ymax);
 	}
 
+	*xtrans = -(*xtrans)/2;
+	*ytrans = -(*ytrans)/2;
+
 	*dwidth = xmax - xmin;
 	*dheight = ymax - ymin;
 }
 
-__host__ int main(int argc, char **argv){
-	printf("reading openEXR file %s\n", argv[1]);
-	
-	int width, height;
-
-	float *input;
-	readOpenEXRFile(argv[1], &input, width, height);
-
-	float *transform = (float *) malloc(sizeof(float) * 9);
-	transform[0] = 0.707;
-	transform[1] = -0.707;
-	transform[2] = 100;
-	transform[3] = 0.707;
-	transform[4] = 0.707;
-	transform[5] = 100;
-	transform[6] = 0;
-	transform[7] = 0;
-	transform[8] = 1;
-
-	int xtrans;
-	int ytrans;
-	int dwidth;
-	int dheight;
-//	find_dest(transform, width, height, &xtrans, &ytrans, &dwidth, &dheight);
+//__host__ int main(int argc, char **argv){
+//	printf("reading openEXR file %s\n", argv[1]);
+//
+//	int width, height;
+//
+//	float *input;
+//	readOpenEXRFile(argv[1], &input, width, height);
+//
+//	float *transform = (float *) malloc(sizeof(float) * 9);
+//	transform[0] = 0.707;
+//	transform[1] = -0.707;
+//	transform[2] = 100;
+//	transform[3] = 0.707;
+//	transform[4] = 0.707;
+//	transform[5] = 100;
+//	transform[6] = 0;
+//	transform[7] = 0;
+//	transform[8] = 1;
+//
+//	int xtrans;
+//	int ytrans;
+//	int dwidth;
+//	int dheight;
+////	find_dest(transform, width, height, &xtrans, &ytrans, &dwidth, &dheight);
+////
+////	float *output = (float *) malloc(sizeof(float) * dwidth * dheight * 3);
+////	for (int i = 0; i < dwidth*dheight*3; i+=3)
+////	{
+////		output[i] = 1;
+////	}
+////
+////	apply_transform(input, output, transform, width, height, xtrans, ytrans,
+////			dwidth, dheight);
+////
+////	printf("writing output image trans_out.exr\n");
+////	writeOpenEXRFile("trans_out.exr", output, dwidth, dheight);
+//
+//	//Testing with original image unmoved
+//	float *new_trans = (float *) malloc(sizeof(float) * 18);
+//	for (int i = 0; i < 9; i++)
+//		new_trans[i] = transform[i];
+//	new_trans[9] = 1;
+//	new_trans[10] = 0;
+//	new_trans[11] = 0;
+//	new_trans[12] = 0;
+//	new_trans[13] = 1;
+//	new_trans[14] = 0;
+//	new_trans[15] = 0;
+//	new_trans[16] = 0;
+//	new_trans[17] = 1;
+//
+//	find_dest_multi(new_trans, 2, width, height, &xtrans, &ytrans, &dwidth, &dheight);
 //
 //	float *output = (float *) malloc(sizeof(float) * dwidth * dheight * 3);
 //	for (int i = 0; i < dwidth*dheight*3; i+=3)
@@ -250,43 +284,15 @@ __host__ int main(int argc, char **argv){
 //		output[i] = 1;
 //	}
 //
-//	apply_transform(input, output, transform, width, height, xtrans, ytrans,
-//			dwidth, dheight);
+//	apply_transform(input, output, new_trans, width, height, xtrans, ytrans, dwidth, dheight);
+//	writeOpenEXRFile("multi_trans.exr", output, dwidth, dheight);
 //
-//	printf("writing output image trans_out.exr\n");
-//	writeOpenEXRFile("trans_out.exr", output, dwidth, dheight);
-	
-	//Testing with original image unmoved
-	float *new_trans = (float *) malloc(sizeof(float) * 18);
-	for (int i = 0; i < 9; i++)
-		new_trans[i] = transform[i];
-	new_trans[9] = 1;
-	new_trans[10] = 0;
-	new_trans[11] = 0;
-	new_trans[12] = 0;
-	new_trans[13] = 1;
-	new_trans[14] = 0;
-	new_trans[15] = 0;
-	new_trans[16] = 0;
-	new_trans[17] = 1;
-
-	find_dest_multi(new_trans, 2, width, height, &xtrans, &ytrans, &dwidth, &dheight);
-
-	float *output = (float *) malloc(sizeof(float) * dwidth * dheight * 3);
-	for (int i = 0; i < dwidth*dheight*3; i+=3)
-	{
-		output[i] = 1;
-	}
-
-	apply_transform(input, output, new_trans, width, height, xtrans, ytrans, dwidth, dheight);
-	writeOpenEXRFile("multi_trans.exr", output, dwidth, dheight);
-
-	apply_transform(input, output, &new_trans[9], width, height, xtrans, ytrans, dwidth, dheight);
-	writeOpenEXRFile("multi_orig.exr", output, dwidth, dheight);
-
-
-	free(transform);
-	free(output);
-	free(input);
-
-}
+//	apply_transform(input, output, &new_trans[9], width, height, xtrans, ytrans, dwidth, dheight);
+//	writeOpenEXRFile("multi_orig.exr", output, dwidth, dheight);
+//
+//
+//	free(transform);
+//	free(output);
+//	free(input);
+//
+//}

@@ -1,21 +1,8 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "error_handling.h"
-
-#define PI 3.1415926
-#define VECTOR_LENGTH 8
-
-#define RANSAC_MIN_MATCHES 4
-#define RANSAC_MAX_MATCHES 15
-#define RANSAC_MAX_ATTEMPTS 100
-
-#define RANSAC_EPSILON 0.90
-#define RANSAC_THRESHOLD 0.75
-
-#define RANSAC_CHARACTERISTIC_THRESHOLD 1
-
-#define TRANSFORM_DEFAULT_VALUE 6893
+//#include "error_handling.h"
+#include "match.h"
 
 __host__ void transform(double *pt_before, double (*matrix)[3], double *pt_after){
 	for (int i = 0; i < 3; ++i){
@@ -294,30 +281,30 @@ void runtest(double *im1, double *im2, double *matrix){
 	printf("\n");
 }
 
-int main(void){
-	srand(time(NULL));
-	double *matrix = (double *) malloc(sizeof(double) * 9);
-
-	for(int i = 0; i < 9; ++i)
-		matrix[i] = TRANSFORM_DEFAULT_VALUE;
-
-	double im1[27] = {0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8};
-	
-	double im2[27] = {0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8};
-	runtest(im1, im2, matrix);
-
-	double im2_2[27] = {0,0,0,-1,-1,1,-2,-2,2,-3,-3,3,-4,-4,4,-5,-5,5,-6,-6,6,-7,-7,7,-8,-8,8};
-	runtest(im1, im2_2, matrix);
-
-	double im2_3[27] = {5,2,0,6,3,1,7,4,2,8,5,3,9,6,4,10,7,5,11,8,6,12,9,7,13,10,8};
-	runtest(im1, im2_3, matrix);
-
-	double im2_4[27] = {5,22,0,6,23,1,7,24,2,8,5,3,9,6,4,10,7.2,5,11,8,6,12,9,7,13,10,8};
-	runtest(im1, im2_4, matrix);
-
-	double im2_5[27] = {5,2.1,0,6,3.1,1,7.1,4,2,8,5,3,9,6,4,10.1,7,5,11,8,6,12,9,7,13.1,10.1,8};
-	runtest(im1, im2_5, matrix);
-
-	free(matrix);
-	return 0;
-}
+//int main(void){
+//	srand(time(NULL));
+//	double *matrix = (double *) malloc(sizeof(double) * 9);
+//
+//	for(int i = 0; i < 9; ++i)
+//		matrix[i] = TRANSFORM_DEFAULT_VALUE;
+//
+//	double im1[27] = {0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8};
+//
+//	double im2[27] = {0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8};
+//	runtest(im1, im2, matrix);
+//
+//	double im2_2[27] = {0,0,0,-1,-1,1,-2,-2,2,-3,-3,3,-4,-4,4,-5,-5,5,-6,-6,6,-7,-7,7,-8,-8,8};
+//	runtest(im1, im2_2, matrix);
+//
+//	double im2_3[27] = {5,2,0,6,3,1,7,4,2,8,5,3,9,6,4,10,7,5,11,8,6,12,9,7,13,10,8};
+//	runtest(im1, im2_3, matrix);
+//
+//	double im2_4[27] = {5,22,0,6,23,1,7,24,2,8,5,3,9,6,4,10,7.2,5,11,8,6,12,9,7,13,10,8};
+//	runtest(im1, im2_4, matrix);
+//
+//	double im2_5[27] = {5,2.1,0,6,3.1,1,7.1,4,2,8,5,3,9,6,4,10.1,7,5,11,8,6,12,9,7,13.1,10.1,8};
+//	runtest(im1, im2_5, matrix);
+//
+//	free(matrix);
+//	return 0;
+//}
