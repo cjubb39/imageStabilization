@@ -110,9 +110,9 @@ __global__ void image_transform(float *source, float *destination,
 
 	if (fetch_x >= width || fetch_x < 0 ||
 			fetch_y >= height || fetch_y < 0){
-		destination[3*index] = 1;
-		destination[3*index + 1] = 1;
-		destination[3*index + 2] = 1;
+		destination[3*index] = 0;
+		destination[3*index + 1] = 0;
+		destination[3*index + 2] = 0;
 	} else {
 		destination[3*index] =
 			source[(int) (3 * rowmajIndex(fetch_x, fetch_y, width, height))];
