@@ -1,7 +1,7 @@
 #include "error_handling.h"
 //#include "im1.h"
 
-#define rowmajIndex(col, row, width, height) ( ((int) row + height/2)*width + ((int) col + width/2))
+#define rowmajIndex(col, row, width, height) ( ((int) row)*width + ((int) col))
 
 __host__ void comb_trans(double *transforms, int num_trans)
 {
@@ -57,34 +57,58 @@ __global__ void image_transform(float *source, float *destination,
 		float *transform_info){
 
 	/* want origin at center */
-	const int x = blockIdx.x * blockDim.x + threadIdx.x - dwidth / 2;
-	const int y = blockIdx.y * blockDim.y + threadIdx.y - dheight / 2;
+	const int x = blockIdx.x * blockDim.x + threadIdx.x;// - dwidth / 2;
+	const int y = blockIdx.y * blockDim.y + threadIdx.y;// - dheight / 2;
 	const int index = rowmajIndex(x, y, dwidth, dheight);
 
-	if (x >= dwidth/2 || y >= dheight/2){
+	if (x >= dwidth || y >= dheight){
 		return;
 	}
 
 	/* do translation */
-	float fetch_x = x + xtrans;// + transform_info[2];
-	float fetch_y = y + ytrans;// + transform_info[3];
+	float fetch_x = x;// + xtrans;// + transform_info[2];
+	float fetch_y = y;// + ytrans;// + transform_info[3];
 
 	/* do rotation */
-	float cos_val = transform_info[0], sin_val = transform_info[1];
+/*	float cos_val = transform_info[0], sin_val = transform_info[1];
 	
-	int tmp = fetch_x;
-	fetch_x = tmp*cos_val - fetch_y*sin_val ;//+ transform_info[2];
-	fetch_y = tmp*sin_val + fetch_y*cos_val ;//+ transform_info[3];
+	fetch_x = tmp*cos_val - fetch_y*sin_val;// - transform_info[2];
+	fetch_y = tmp*sin_val + fetch_y*cos_val;// - transform_info[3];*/
+
+	/* apply transform */
+	float tmp = fetch_x;
+	float divisor = fetch_x*transform_info[6] + fetch_y*transform_info[7] + transform_info[8];
+	fetch_x = (tmp * transform_info[0] + fetch_y * transform_info[1] + transform_info[2])
+		/ divisor;
+	fetch_y = (tmp * transform_info[3] + fetch_y * transform_info[4] + transform_info[5])
+		/ divisor;
+
+	//fetch_x += xtrans;
+	//fetch_y += ytrans;
 
 /*printf("Coord: %d, %d: %d; Dim: %d %d" ";; fetch: %d, %d: %d\n", 
 	x, y, 3*rowmajIndex(x,y,width, height), width, height, 
 	(int) fetch_x, (int) fetch_y, (int) (3*rowmajIndex((int) fetch_x, (int) fetch_y,width, height)));
 */
-	if (fetch_x >= width/2 || fetch_x < -width/2 ||
+/*	if (fetch_x >= width/2 || fetch_x < -width/2 ||
 			fetch_y >= height/2 || fetch_y < -height/2){
 		destination[3*index] = 0.25;
 		destination[3*index + 1] = 0.25;
 		destination[3*index + 2] = 0.25;
+	} else {
+		destination[3*index] =
+			source[(int) (3 * rowmajIndex(fetch_x, fetch_y, width, height))];
+		destination[3*index + 1] =
+			source[(int) (3 * rowmajIndex(fetch_x, fetch_y, width, height) + 1)];
+		destination[3*index + 2] =
+			source[(int) (3 * rowmajIndex(fetch_x, fetch_y, width, height) + 2)];
+	}*/
+
+	if (fetch_x >= width || fetch_x < 0 ||
+			fetch_y >= height || fetch_y < 0){
+		destination[3*index] = 1;
+		destination[3*index + 1] = 0;
+		destination[3*index + 2] = 0;
 	} else {
 		destination[3*index] =
 			source[(int) (3 * rowmajIndex(fetch_x, fetch_y, width, height))];
@@ -131,28 +155,33 @@ __host__ void apply_transform(float *input, float *output, double *transform,
   GPU_CHECKERROR( cudaEventRecord( start, 0 ));
 
 
-	/* convert transform to whats used below */
-	float tmp_transform[4];
+	/* convert transform to whats used below 
+		 cos(theta), sin(theta), dx, dy */
+/*	float tmp_transform[4];
 	tmp_transform[0] = transform[0];
 	tmp_transform[1] = -transform[1];
 	tmp_transform[2] = transform[2];
-	tmp_transform[3] = transform[5];
+	tmp_transform[3] = transform[5];*/
+	float f_transform[9];
+	for(int i = 0; i < 9; ++i){
+		f_transform[i] = transform[i];
+	}
 
 #ifdef DEBUG
-printf("transform prop: %f %f %f %f\n", tmp_transform[0], tmp_transform[1], tmp_transform[2], tmp_transform[3]);
+//printf("transform prop: %f %f %f %f\n", tmp_transform[0], tmp_transform[1], tmp_transform[2], tmp_transform[3]);
 #endif
 
 	float *d_source, *d_destination, *d_transform_info;
 	GPU_CHECKERROR(cudaMalloc(&d_source, sizeof(float) * height * width * 3));
 	GPU_CHECKERROR(cudaMalloc(&d_destination, sizeof(float) * dheight * dwidth * 3));
-	GPU_CHECKERROR(cudaMalloc(&d_transform_info, sizeof(float) * 4));
+	GPU_CHECKERROR(cudaMalloc(&d_transform_info, sizeof(float) * 9));
 
 	GPU_CHECKERROR(cudaMemcpy(d_source, input, 
 		sizeof(float) * height * width * 3, cudaMemcpyHostToDevice));
 	GPU_CHECKERROR(cudaMemcpy(d_destination, output, sizeof(float) * dheight * dwidth * 3,
 			cudaMemcpyHostToDevice));
-	GPU_CHECKERROR(cudaMemcpy(d_transform_info, tmp_transform,
-		sizeof(float) * 4, cudaMemcpyHostToDevice));
+	GPU_CHECKERROR(cudaMemcpy(d_transform_info, f_transform,
+		sizeof(float) * 9, cudaMemcpyHostToDevice));
 
 	/* run kernel */
 	int device_info[2];
@@ -193,10 +222,10 @@ __host__ void find_dest_multi(double *transforms, int num_transforms, int width,
 		int height, int *xtrans, int *ytrans, int *dwidth, int *dheight)
 {
 	//Start with assuming no transformation
-	int xmin = -width/2;
-	int ymin = -width/2;
-	int xmax = width/2;
-	int ymax = height/2;
+	int xmin = 0;
+	int ymin = 0;
+	int xmax = width;
+	int ymax = height;
 	*xtrans = 0;
 	*ytrans = 0;
 
@@ -233,9 +262,9 @@ __host__ void find_dest_multi(double *transforms, int num_transforms, int width,
 		ymax = max(max(max(max(y1, y2), y3), y4), ymax);
 	}
 
-	*dwidth = 1600;//xmax - xmin;
-	*dheight = 1600;//ymax - ymin;
+	*dwidth = 1800;//xmax - xmin;
+	*dheight = 1800;//ymax - ymin;
 
-	*xtrans = 0;//-(xmax+xmin)/2;// + *dwidth/2; // (*xtrans);
-	*ytrans = 0;//-(ymax+ymin)/2;// + *dheight/2; //(*ytrans);
+	*xtrans = -200;//-(xmax+xmin)/2;// + *dwidth/2; // (*xtrans);
+	*ytrans = -400;//-(ymax+ymin)/2;// + *dheight/2; //(*ytrans);
 }

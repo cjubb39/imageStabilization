@@ -93,7 +93,8 @@ void sift_images(const char *im1_name, const char* im2_name,
   unsigned int w = limg.cols;
   unsigned int h = limg.rows;
   std::cout << "Image size = (" << w << "," << h << ")" << std::endl;
-  
+ 
+
   // Perform some initial blurring (if needed)
   cv::GaussianBlur(limg, limg, cv::Size(11,11), 11.0);
   cv::GaussianBlur(rimg, rimg, cv::Size(11,11), 11.0);

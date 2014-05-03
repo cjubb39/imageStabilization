@@ -42,3 +42,6 @@ $(OUTPUT) : $(OBJS)
 
 clean:
 	rm -f $(OBJS) $(OUTPUT)
+
+obj-clean:
+	rm -f $(OBJS)

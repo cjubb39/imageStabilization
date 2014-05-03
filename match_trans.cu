@@ -7,6 +7,11 @@
 
 __host__ int main(int argc, char **argv)
 {
+	if (argc < 3){
+		fprintf(stderr, "run as %s <image 1> <image 2>\n", argv[0]);
+		exit(1);
+	}
+
 	srand(time(NULL));
 
 	int num_img = 2;
@@ -31,14 +36,14 @@ __host__ int main(int argc, char **argv)
 
 	sift_images(argv[1], argv[2], &img1_featurelist, &img1_feat_length, &img2_featurelist, &img2_feat_length, &transforms_f[9]);
 
-	fprintf(stderr, "IM1 LIST:\n");
+	//fprintf(stderr, "IM1 LIST:\n");
 	for (int i = 0; i < img1_feat_length; i+=3)
 	{
 		img1_featurelist[i] -= 1280/2;
 		img1_featurelist[i + 1] -= 960/2;
 	}
 
-	fprintf(stderr, "\nIM2 LIST:\n");
+	//fprintf(stderr, "\nIM2 LIST:\n");
 	for (int i = 0; i < img2_feat_length; i+=3)
 	{
 		img2_featurelist[i] -= 1280/2;
@@ -102,17 +107,21 @@ __host__ int main(int argc, char **argv)
 	int dwidth;
 	int dheight;
 
-double *transforms = (double *) malloc(sizeof(double) * 18);
+	double *transforms = (double *) malloc(sizeof(double) * 18);
 
-for (int i=0; i < 18; ++i)
-	transforms[i] = transforms_f[i];
+	for (int i=0; i < 18; ++i){
+		transforms[i] = transforms_f[i];
+	}
 
-	find_dest_multi(transforms, num_img, width, height, &xtrans, &ytrans, &dwidth, &dheight);
+	find_dest_multi(transforms, num_img, width, height, &xtrans, &ytrans, 
+		&dwidth, &dheight);
 
 	float *output = (float *) malloc(sizeof(float) * dwidth * dheight * 3);
-	for (int i = 0; i < dwidth*dheight*3; i++)
+	for (int i = 0; i < dwidth*dheight*3; i += 3)
 	{
-		output[i] = 0.5;
+		output[i] = 0;
+		output[i + 1] = 1;
+		output[i + 2] = 0;
 	}
 
 	char name [30];
@@ -120,7 +129,7 @@ for (int i=0; i < 18; ++i)
 	{
 		readOpenEXRFile(argv[i+1], &input, width, height);
 		apply_transform(input, output, &transforms[9*i], width, height, xtrans, ytrans, dwidth, dheight);
-		sprintf(name, "transformed_%s", argv[i + 1]);
+		sprintf(name, "t_%s", argv[i + 1]);
 		writeOpenEXRFile(name, output, dwidth, dheight);
 	}
 
