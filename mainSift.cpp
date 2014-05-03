@@ -92,7 +92,7 @@ void sift_images(const char *im1_name, const char* im2_name,
 
   unsigned int w = limg.cols;
   unsigned int h = limg.rows;
-  std::cout << "Image size = (" << w << "," << h << ")" << std::endl;
+  //std::cout << "Image size = (" << w << "," << h << ")" << std::endl;
  
 
   // Perform some initial blurring (if needed)
@@ -100,7 +100,7 @@ void sift_images(const char *im1_name, const char* im2_name,
   cv::GaussianBlur(rimg, rimg, cv::Size(11,11), 11.0);
         
   // Initial Cuda images and download images to device
-  std::cout << "Initializing data..." << std::endl;
+  //std::cout << "Initializing data..." << std::endl;
   InitCuda();
   CudaImage img1, img2;
   img1.Allocate(w, h, iAlignUp(w, 128), false, NULL, (float*)limg.data);
@@ -124,20 +124,20 @@ void sift_images(const char *im1_name, const char* im2_name,
   FindHomography(siftData1, homography, &numMatches, 10000, 0.50f, 1.00f, 5.0);
   int numFit = ImproveHomography(siftData1, homography, 3, 0.80f, 0.95f, 3.0);
 
-  printf("\n");
+/*  printf("\n");
   printf("\n");
   for (int i = 0; i < 9; ++i)
     printf("%f ", homography[i]);
   printf("\n");
-  printf("\n");
+  printf("\n");*/
 
   // Print out and store summary data
   GenerateMatchData(siftData1, siftData2, img1, im1_pts, im1_length, im2_pts, im2_length);
   PrintMatchData(siftData1, siftData2, img1);
   
-  std::cout << "Number of original features: " <<  siftData1.numPts << " " << siftData2.numPts << std::endl;
-  std::cout << "Number of matching features: " << numFit << " " << numMatches << " " << 100.0f*numMatches/std::min(siftData1.numPts, siftData2.numPts) << "%" << std::endl;
-  cv::imwrite("sift_match.exr", limg);
+  //std::cout << "Number of original features: " <<  siftData1.numPts << " " << siftData2.numPts << std::endl;
+  //std::cout << "Number of matching features: " << numFit << " " << numMatches << " " << 100.0f*numMatches/std::min(siftData1.numPts, siftData2.numPts) << "%" << std::endl;
+  //cv::imwrite("sift_match.exr", limg);
 
   // Free Sift data from device
   FreeSiftData(siftData1);
@@ -182,7 +182,7 @@ void MatchAll(SiftData &siftData1, SiftData &siftData2, float *homography)
     if (found)
       numFound++;
   }
-  std::cout << "Number of founds: " << numFound << std::endl;
+  //std::cout << "Number of founds: " << numFound << std::endl;
 }
 
 void GenerateMatchData(SiftData &siftData1, SiftData &siftData2, CudaImage &img,
@@ -199,7 +199,7 @@ void GenerateMatchData(SiftData &siftData1, SiftData &siftData2, CudaImage &img,
       ++numMatches;
   }
 
-fprintf(stderr, "MY NUM MATCHES: %d\n", numMatches);
+  //printf("MY NUM MATCHES: %d\n", numMatches);
 
   *im1_pts = (double *) malloc(sizeof(double) * numMatches * 3);
   *im2_pts = (double *) malloc(sizeof(double) * numMatches * 3);

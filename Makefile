@@ -45,3 +45,5 @@ clean:
 
 obj-clean:
 	rm -f $(OBJS)
+
+all: clean $(OUTPUT)

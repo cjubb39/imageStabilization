@@ -111,8 +111,8 @@ __global__ void image_transform(float *source, float *destination,
 	if (fetch_x >= width || fetch_x < 0 ||
 			fetch_y >= height || fetch_y < 0){
 		destination[3*index] = 1;
-		destination[3*index + 1] = 0;
-		destination[3*index + 2] = 0;
+		destination[3*index + 1] = 1;
+		destination[3*index + 2] = 1;
 	} else {
 		destination[3*index] =
 			source[(int) (3 * rowmajIndex(fetch_x, fetch_y, width, height))];
@@ -171,10 +171,6 @@ __host__ void apply_transform(float *input, float *output, double *transform,
 		f_transform[i] = transform[i];
 	}
 
-#ifdef DEBUG
-//printf("transform prop: %f %f %f %f\n", tmp_transform[0], tmp_transform[1], tmp_transform[2], tmp_transform[3]);
-#endif
-
 	float *d_source, *d_destination, *d_transform_info;
 	GPU_CHECKERROR(cudaMalloc(&d_source, sizeof(float) * height * width * 3));
 	GPU_CHECKERROR(cudaMalloc(&d_destination, sizeof(float) * dheight * dwidth * 3));
@@ -216,7 +212,7 @@ __host__ void apply_transform(float *input, float *output, double *transform,
     GPU_CHECKERROR( cudaEventSynchronize( stop ) );
     GPU_CHECKERROR( cudaEventElapsedTime( &elapsedTime,
                                       start, stop ) );
-    printf( "Time taken:  %3.1f ms\n", elapsedTime );
+    printf( "Apply Transform Time taken:  %3.2f ms\n", elapsedTime );
 }
 
 /* Given the set of transformation matrices, find the final destination
@@ -226,49 +222,108 @@ __host__ void find_dest_multi(double *transforms, int num_transforms, int width,
 		int height, int *xtrans, int *ytrans, int *dwidth, int *dheight)
 {
 	//Start with assuming no transformation
-	int xmin = 0;
-	int ymin = 0;
-	int xmax = width;
-	int ymax = height;
+	double xmin = width;
+	double ymin = height;
+	double xmax = 0;
+	double ymax = 0;
+
 	*xtrans = 0;
 	*ytrans = 0;
+
+	int xtrans_0;
+	int ytrans_0;
 
 	for (int i = 0; i < num_transforms; i++)
 	{
 		int index = i*9;
-		//Find the farthest transform that's above and to the left
+
+
+		double inverted_matrix[9];
+		double det = transforms[index] * transforms[index + 4] * transforms[index + 8] +
+			transforms[index + 3] * transforms[index + 7] * transforms[index + 2] +
+			transforms[index + 6] * transforms[index + 1] * transforms[index + 5] -
+			transforms[index + 1] * transforms[index + 7] * transforms[index + 5] -
+			transforms[index + 6] * transforms[index + 4] * transforms[index + 2] -
+			transforms[index + 3] * transforms[index + 1] * transforms[index + 8];
+
+		inverted_matrix[0] = transforms[index + 4] * transforms[index + 8] -
+			transforms[index + 5]*transforms[index + 7];
+
+		inverted_matrix[1] = transforms[index + 2] * transforms[index + 7] -
+			transforms[index + 1]*transforms[index + 8];
+
+		inverted_matrix[2] = transforms[index + 1] * transforms[index + 5] -
+			transforms[index + 2]*transforms[index + 4];
+
+		inverted_matrix[3] = transforms[index + 5] * transforms[index + 6] -
+			transforms[index + 3]*transforms[index + 8];
+
+		inverted_matrix[4] = transforms[index] * transforms[index + 8] -
+			transforms[index + 2]*transforms[index + 6];
+
+		inverted_matrix[5] = transforms[index + 2] * transforms[index + 3] -
+			transforms[index]*transforms[index + 5];
+
+		inverted_matrix[6] = transforms[index + 3] * transforms[index + 7] -
+			transforms[index + 4]*transforms[index + 6];
+
+		inverted_matrix[7] = transforms[index + 1] * transforms[index + 6] -
+			transforms[index]*transforms[index + 7];
+
+		inverted_matrix[8] = transforms[index] * transforms[index + 4] -
+			transforms[index + 1]*transforms[index + 3];
+
+		for (int j = 0; j < 9; ++j)
+			inverted_matrix[j] /= det;
+
+
+/*		//Find the farthest transform that's above and to the left
 		if (-transforms[index + 2] < *xtrans)
 			*xtrans = -transforms[index + 2];
 		if (-transforms[index + 5] < *ytrans)
-			*ytrans = -transforms[index + 5];
+			*ytrans = -transforms[index + 5];*/
+
+
+		/*
+		 *	x1-------x4
+		 *	|         |
+		 *	|         |
+		 *	x2-------x3
+		 */
 
 		//Translate the four corners to find the largest dimensions
-		int x1 = -width/2 * transforms[index]
-		         - height/2 * transforms[index + 1] + transforms[index + 2];// + width/2;
-		int y1 = -width/2 * transforms[index + 3]
-		         - height/2 * transforms[index + 4] + transforms[index + 5];// + height/2;
-		int x2 = -width/2 * transforms[index]
-		         + height/2 * transforms[index + 1] + transforms[index + 2];// + width/2;
-		int y2 = -width/2 * transforms[index + 3]
-		         + height/2 * transforms[index + 4] + transforms[index + 5];// + height/2;
-		int x3 = width/2 * transforms[index]
-		         - height/2 * transforms[index + 1] + transforms[index + 2];// + width/2;
-		int y3 = width/2 * transforms[index + 3]
-		         - height/2 * transforms[index + 4] + transforms[index + 5];// + height/2;
-		int x4 = width/2 * transforms[index]
-		         + height/2 * transforms[index + 1] + transforms[index + 2];// + width/2;
-		int y4 = width/2 * transforms[index + 3]
-		         + height/2 * transforms[index + 4] + transforms[index + 5];// + height/2;
+		double pt1_scale = inverted_matrix[8];
+		double x1 = inverted_matrix[2] / pt1_scale;
+		double y1 = inverted_matrix[5] / pt1_scale;
+
+		double pt2_scale = height * inverted_matrix[7] + inverted_matrix[8];
+		double x2 = (height * inverted_matrix[1] + inverted_matrix[2]) / pt2_scale;
+		double y2 = (height * inverted_matrix[4] + inverted_matrix[5]) / pt2_scale;
+		
+		double pt3_scale = width * inverted_matrix[6] + pt2_scale;
+		double x3 = (width * transforms[index] + height * inverted_matrix[1]
+			+ inverted_matrix[2]) / pt3_scale;
+		double y3 = (width * inverted_matrix[3] + height * inverted_matrix[4]
+			+ inverted_matrix[5]) / pt3_scale;
+		
+		double pt4_scale = width * inverted_matrix[6] + inverted_matrix[8];
+		double x4 = (width * transforms[index] + inverted_matrix[2]) / pt4_scale;
+		double y4 = (width * inverted_matrix[3] + inverted_matrix[5]) / pt4_scale;
 
 		xmin = min(min(min(min(x1, x2), x3), x4), xmin);
 		ymin = min(min(min(min(y1, y2), y3), y4), ymin);
 		xmax = max(max(max(max(x1, x2), x3), x4), xmax);
 		ymax = max(max(max(max(y1, y2), y3), y4), ymax);
+
+		if (i == 0){
+			xtrans_0 = xmin;
+			ytrans_0 = ymin;
+		}
 	}
 
-	*dwidth = 1800;//xmax - xmin;
-	*dheight = 1800;//ymax - ymin;
+	*dwidth = (int) xmax - (int) xmin + 20;
+	*dheight = (int) ymax - (int) ymin + 20;
 
-	*xtrans = 200;//-(xmax+xmin)/2;// + *dwidth/2; // (*xtrans);
-	*ytrans = 400;//-(ymax+ymin)/2;// + *dheight/2; //(*ytrans);
+	*xtrans = (int) xtrans_0 - (int) xmin + 10;
+	*ytrans = (int) ytrans_0 - (int) ymin + 10;
 }
