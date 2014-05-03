@@ -57,17 +57,21 @@ __global__ void image_transform(float *source, float *destination,
 		float *transform_info){
 
 	/* want origin at center */
-	const int x = blockIdx.x * blockDim.x + threadIdx.x;// - dwidth / 2;
-	const int y = blockIdx.y * blockDim.y + threadIdx.y;// - dheight / 2;
+	const int x = blockIdx.x * blockDim.x + threadIdx.x;
+	const int y = blockIdx.y * blockDim.y + threadIdx.y;
 	const int index = rowmajIndex(x, y, dwidth, dheight);
 
-	if (x >= dwidth || y >= dheight){
+/*	if (x >= dwidth || y >= dheight || x < 0 || y < 0){
+		return;
+	}*/
+
+	if ((x) >= (dwidth) || (y) >= (dheight) || (x) < 0 || (y) < 0){
 		return;
 	}
 
 	/* do translation */
-	float fetch_x = x;// + xtrans;// + transform_info[2];
-	float fetch_y = y;// + ytrans;// + transform_info[3];
+	float fetch_x = x - xtrans;
+	float fetch_y = y - ytrans;
 
 	/* do rotation */
 /*	float cos_val = transform_info[0], sin_val = transform_info[1];
@@ -265,6 +269,6 @@ __host__ void find_dest_multi(double *transforms, int num_transforms, int width,
 	*dwidth = 1800;//xmax - xmin;
 	*dheight = 1800;//ymax - ymin;
 
-	*xtrans = -200;//-(xmax+xmin)/2;// + *dwidth/2; // (*xtrans);
-	*ytrans = -400;//-(ymax+ymin)/2;// + *dheight/2; //(*ytrans);
+	*xtrans = 200;//-(xmax+xmin)/2;// + *dwidth/2; // (*xtrans);
+	*ytrans = 400;//-(ymax+ymin)/2;// + *dheight/2; //(*ytrans);
 }
