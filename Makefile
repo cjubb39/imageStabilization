@@ -41,4 +41,4 @@ $(OUTPUT) : $(OBJS)
 	$(CXX) $(NVCCFLAGS) $(IDIR) -c -o $@ $<
 
 clean:
-	rm -f $(OBJS) $(EXE)
+	rm -f $(OBJS) $(OUTPUT)

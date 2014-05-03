@@ -4,6 +4,8 @@
 //#include "error_handling.h"
 #include "match.h"
 
+//#define DEBUG
+
 __host__ void transform(double *pt_before, double (*matrix)[3], double *pt_after){
 	for (int i = 0; i < 3; ++i){
 		pt_after[i] =
@@ -53,6 +55,11 @@ __host__ void ransac_full(double(*vectors)[VECTOR_LENGTH], int length, double *r
 
 		double	theta_m = atan(dy_m / dx_m) + ((dx_m < 0) ? PI : 0),
 						theta_s = atan(dy_s / dx_s) + ((dx_s < 0) ? PI : 0);
+
+		if (isnan(theta_m) || isnan(theta_s)){
+			printf("THETA nan\n");
+			return;
+		}
 
 		double	rt_m_inverse[3][3], rt_s[3][3];
 
@@ -168,7 +175,7 @@ __host__ int get_random_vector_pair_diff(double *im1, int im1_len,
 	/* get characteristic value from random index */
 	double char1 = im1[3*index1 + 2];
 	double char2 = im1[3*index2 + 2];
-	
+
 	int i = 0;
 	double *tracker;
 	for (i = 0, tracker = (im2 + 2); i < im2_len; tracker += 3, ++i){
@@ -188,10 +195,10 @@ __host__ int get_random_vector_pair_diff(double *im1, int im1_len,
 	result[1] = im1[index1*3 + 1]; /* 1.1.y */
 	result[2] = im1[index2*3]; /* 1.2.x */
 	result[3] = im1[index2*3 + 1]; /* 1.2.y */
-	result[4] = im2[index1_im2*3]; /* 2.1.x */
-	result[5] = im2[index1_im2*3 + 1]; /* 2.1.y */
-	result[6] = im2[index2_im2*3]; /* 2.2.x */
-	result[7] = im2[index2_im2*3 + 1]; /* 2.2.y */
+	result[4] = im2[index1*3]; /* 2.1.x */
+	result[5] = im2[index1*3 + 1]; /* 2.1.y */
+	result[6] = im2[index2*3]; /* 2.2.x */
+	result[7] = im2[index2*3 + 1]; /* 2.2.y */
 
 	return 0;
 }
@@ -242,6 +249,7 @@ __host__ void match_images(double *im1, int im1_len,
 				vectors[matches][7] = points[7];
 				++matches;
 			} else {
+				//fprintf(stderr, "it would be weird if you got this\n");
 				continue; /* no match; try again */
 			}
 

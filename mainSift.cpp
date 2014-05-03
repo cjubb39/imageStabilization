@@ -19,8 +19,61 @@
 #define MATCH_ERROR_THRESHOLD 10
 #define FEATURE_MATCH_THRESHOLD 0.01f
 
+int ImproveHomography(SiftData &data, float *homography, int numLoops, float minScore, float maxAmbiguity, float thresh);
+double ComputeSingular(CudaImage *img, CudaImage *svd);
+void GenerateMatchData(SiftData &siftData1, SiftData &siftData2, CudaImage &img, double **, int *, double **, int *);
+void MatchAll(SiftData &siftData1, SiftData &siftData2, float *homography);
+
+
+void PrintMatchData(SiftData &siftData1, SiftData &siftData2, CudaImage &img)
+{
+  int numPts = siftData1.numPts;
+  SiftPoint *sift1 = siftData1.h_data;
+  SiftPoint *sift2 = siftData2.h_data;
+  float *h_img = img.h_data;
+  int w = img.width;
+  int h = img.height;
+  std::cout << std::setprecision(3);
+  for (int j=0;j<numPts;j++) { 
+    int k = sift1[j].match;
+    if (sift1[j].match_error<10) {
+      float dx = sift2[k].xpos - sift1[j].xpos;
+      float dy = sift2[k].ypos - sift1[j].ypos;
+#if 0
+      std::cout << j << ": " << "score=" << sift1[j].score << "  ambiguity=" << sift1[j].ambiguity << "  match=" << k << "  ";
+      std::cout << "error=" << (int)sift1[j].match_error << "  ";
+      std::cout << "orient=" << (int)sift1[j].orientation << "," << (int)sift2[k].orientation << "  ";
+      std::cout << "pos1=(" << (int)sift1[j].xpos << "," << (int)sift1[j].ypos << ")" << std::endl;
+      if (0) std::cout << "  delta=(" << (int)dx << "," << (int)dy << ")" << std::endl;
+#endif
+#if 0
+      int len = (int)(fabs(dx)>fabs(dy) ? fabs(dx) : fabs(dy));
+      for (int l=0;l<len;l++) {
+  int x = (int)(sift1[j].xpos + dx*l/len);
+  int y = (int)(sift1[j].ypos + dy*l/len);
+  h_img[y*w+x] = 255.0f;
+      } 
+#endif
+    }
+#if 1
+    int x = (int)(sift1[j].xpos+0.5);
+    int y = (int)(sift1[j].ypos+0.5);
+    int s = std::min(x, std::min(y, std::min(w-x-2, std::min(h-y-2, (int)(1.41*sift1[j].scale)))));
+    int p = y*w + x;
+    p += (w+1);
+    for (int k=0;k<s;k++) 
+      h_img[p-k] = h_img[p+k] = h_img[p-k*w] = h_img[p+k*w] = 0.0f;
+    p -= (w+1);
+    for (int k=0;k<s;k++) 
+      h_img[p-k] = h_img[p+k] = h_img[p-k*w] =h_img[p+k*w] = 255.0f;
+#endif
+  }
+  std::cout << std::setprecision(6);
+}
+
+
 void sift_images(const char *im1_name, const char* im2_name,
-  double **im1_pts, int *im1_length, double **im2_pts, int *im2_length)
+  double **im1_pts, int *im1_length, double **im2_pts, int *im2_length, float* homography)
 {     
   // Read images using OpenCV
   cv::Mat limg, rimg;
@@ -45,7 +98,6 @@ void sift_images(const char *im1_name, const char* im2_name,
   cv::GaussianBlur(limg, limg, cv::Size(11,11), 11.0);
   cv::GaussianBlur(rimg, rimg, cv::Size(11,11), 11.0);
         
-  cv::imwrite("test/test23_pts.exr", rimg);
   // Initial Cuda images and download images to device
   std::cout << "Initializing data..." << std::endl;
   InitCuda();
@@ -66,7 +118,7 @@ void sift_images(const char *im1_name, const char* im2_name,
 
   // Match Sift features and find a homography
   MatchSiftData(siftData1, siftData2);
-  float homography[9];
+  //float homography[9];
   int numMatches;
   FindHomography(siftData1, homography, &numMatches, 10000, 0.50f, 1.00f, 5.0);
   int numFit = ImproveHomography(siftData1, homography, 3, 0.80f, 0.95f, 3.0);
@@ -80,10 +132,11 @@ void sift_images(const char *im1_name, const char* im2_name,
 
   // Print out and store summary data
   GenerateMatchData(siftData1, siftData2, img1, im1_pts, im1_length, im2_pts, im2_length);
+  PrintMatchData(siftData1, siftData2, img1);
   
   std::cout << "Number of original features: " <<  siftData1.numPts << " " << siftData2.numPts << std::endl;
   std::cout << "Number of matching features: " << numFit << " " << numMatches << " " << 100.0f*numMatches/std::min(siftData1.numPts, siftData2.numPts) << "%" << std::endl;
-  cv::imwrite("test/limg_pts.exr", limg);
+  cv::imwrite("sift_match.exr", limg);
 
   // Free Sift data from device
   FreeSiftData(siftData1);
@@ -144,6 +197,9 @@ void GenerateMatchData(SiftData &siftData1, SiftData &siftData2, CudaImage &img,
     if (sift1[j].match_error< MATCH_ERROR_THRESHOLD)
       ++numMatches;
   }
+
+fprintf(stderr, "MY NUM MATCHES: %d\n", numMatches);
+
   *im1_pts = (double *) malloc(sizeof(double) * numMatches * 3);
   *im2_pts = (double *) malloc(sizeof(double) * numMatches * 3);
 

@@ -66,15 +66,15 @@ __global__ void image_transform(float *source, float *destination,
 	}
 
 	/* do translation */
-	float fetch_x = x + xtrans + transform_info[2];
-	float fetch_y = y + ytrans + transform_info[3];
+	float fetch_x = x + xtrans;// + transform_info[2];
+	float fetch_y = y + ytrans;// + transform_info[3];
 
 	/* do rotation */
 	float cos_val = transform_info[0], sin_val = transform_info[1];
 	
 	int tmp = fetch_x;
-	fetch_x = tmp*cos_val - fetch_y*sin_val;
-	fetch_y = tmp*sin_val + fetch_y*cos_val;
+	fetch_x = tmp*cos_val - fetch_y*sin_val ;//+ transform_info[2];
+	fetch_y = tmp*sin_val + fetch_y*cos_val ;//+ transform_info[3];
 
 /*printf("Coord: %d, %d: %d; Dim: %d %d" ";; fetch: %d, %d: %d\n", 
 	x, y, 3*rowmajIndex(x,y,width, height), width, height, 
@@ -193,37 +193,39 @@ __host__ void find_dest_multi(double *transforms, int num_transforms, int width,
 		int height, int *xtrans, int *ytrans, int *dwidth, int *dheight)
 {
 	//Start with assuming no transformation
-	int xmin = 0;
-	int ymin = 0;
-	int xmax = width;
-	int ymax = height;
+	int xmin = -width/2;
+	int ymin = -width/2;
+	int xmax = width/2;
+	int ymax = height/2;
+	*xtrans = 0;
+	*ytrans = 0;
 
 	for (int i = 0; i < num_transforms; i++)
 	{
 		int index = i*9;
 		//Find the farthest transform that's above and to the left
-		if (transforms[index + 2] < *xtrans)
-			*xtrans = transforms[index + 2];
-		if (transforms[index + 5] < *ytrans)
-			*ytrans = transforms[index + 5];
+		if (-transforms[index + 2] < *xtrans)
+			*xtrans = -transforms[index + 2];
+		if (-transforms[index + 5] < *ytrans)
+			*ytrans = -transforms[index + 5];
 
 		//Translate the four corners to find the largest dimensions
 		int x1 = -width/2 * transforms[index]
-		         - height/2 * transforms[index + 1] + transforms[index + 2] + width/2;
+		         - height/2 * transforms[index + 1] + transforms[index + 2];// + width/2;
 		int y1 = -width/2 * transforms[index + 3]
-		         - height/2 * transforms[index + 4] + transforms[index + 5] + height/2;
+		         - height/2 * transforms[index + 4] + transforms[index + 5];// + height/2;
 		int x2 = -width/2 * transforms[index]
-		         + height/2 * transforms[index + 1] + transforms[index + 2] + width/2;
+		         + height/2 * transforms[index + 1] + transforms[index + 2];// + width/2;
 		int y2 = -width/2 * transforms[index + 3]
-		         + height/2 * transforms[index + 4] + transforms[index + 5] + height/2;
+		         + height/2 * transforms[index + 4] + transforms[index + 5];// + height/2;
 		int x3 = width/2 * transforms[index]
-		         - height/2 * transforms[index + 1] + transforms[index + 2] + width/2;
+		         - height/2 * transforms[index + 1] + transforms[index + 2];// + width/2;
 		int y3 = width/2 * transforms[index + 3]
-		         - height/2 * transforms[index + 4] + transforms[index + 5] + height/2;
+		         - height/2 * transforms[index + 4] + transforms[index + 5];// + height/2;
 		int x4 = width/2 * transforms[index]
-		         + height/2 * transforms[index + 1] + transforms[index + 2] + width/2;
+		         + height/2 * transforms[index + 1] + transforms[index + 2];// + width/2;
 		int y4 = width/2 * transforms[index + 3]
-		         + height/2 * transforms[index + 4] + transforms[index + 5] + height/2;
+		         + height/2 * transforms[index + 4] + transforms[index + 5];// + height/2;
 
 		xmin = min(min(min(min(x1, x2), x3), x4), xmin);
 		ymin = min(min(min(min(y1, y2), y3), y4), ymin);
@@ -231,9 +233,9 @@ __host__ void find_dest_multi(double *transforms, int num_transforms, int width,
 		ymax = max(max(max(max(y1, y2), y3), y4), ymax);
 	}
 
-	*xtrans = -(*xtrans)/2;
-	*ytrans = -(*ytrans)/2;
+	*dwidth = 1600;//xmax - xmin;
+	*dheight = 1600;//ymax - ymin;
 
-	*dwidth = xmax - xmin;
-	*dheight = ymax - ymin;
+	*xtrans = 0;//-(xmax+xmin)/2;// + *dwidth/2; // (*xtrans);
+	*ytrans = 0;//-(ymax+ymin)/2;// + *dheight/2; //(*ytrans);
 }
